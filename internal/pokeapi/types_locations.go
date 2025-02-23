@@ -10,3 +10,12 @@ type RespShallowLocations struct {
 		URL  string `json:"url"`
 	} `json:"results"`
 }
+
+type LocationAreaResponse struct {
+	PokemonEncounters []struct {
+		Pokemon struct {
+			Name string `json:"Name"`
+			URL  string `json:"url"`
+		} `json:"pokemon"`
+	} `json:"pokemon_encounters"`
+}

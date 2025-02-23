@@ -1,7 +1,6 @@
-package main
+package pokecache
 
 import (
-	"fmt"
 	"sync"
 	"time"
 )
@@ -26,15 +25,13 @@ func NewCache(td time.Duration) *Cache {
 
 func (c *Cache) Add(key string, val []byte) {
 	c.mutex.Lock()
-
+	defer c.mutex.Unlock()
 	entry := cacheEntry{
 		createdAt: time.Now(),
 		val:       val,
 	}
 
 	c.entries[key] = entry
-
-	c.mutex.Unlock()
 
 }
 
@@ -45,7 +42,7 @@ func (c *Cache) Get(key string) ([]byte, bool) {
 
 	entry, exists := c.entries[key]
 	if !exists {
-		fmt.Println("Key not found in cache")
+
 		return nil, false
 	}
 
@@ -55,7 +52,7 @@ func (c *Cache) Get(key string) ([]byte, bool) {
 
 func (c *Cache) reapLoop(interval time.Duration) {
 	ticker := time.NewTicker(interval)
-
+	defer ticker.Stop()
 	for {
 		<-ticker.C
 		c.mutex.Lock()
