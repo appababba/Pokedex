@@ -1,61 +1,57 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
-	"net/http"
 	"time"
+
+	"github.com/appababba/pokedexcli/internal/pokeapi"
 )
 
-type Pokemon struct {
-	BaseExperience int `json:"base_experience"`
+// command handler for catch command
+func HandleCatch(cfg *config, arg []string) error {
+	if len(arg) != 1 {
+		return fmt.Errorf("usage: catch <pokemon>")
+	}
+
+	pokemonName := arg[0]
+	fmt.Printf("Throwing a Pokeball at %s...\n", pokemonName)
+
+	// call the catch function with the pokemon name
+	err := Catch(cfg, pokemonName)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
-func Catch(pokemon string) {
-	rand.Seed(time.Now().UnixNano()) // seed for randomness
+func calculateCatchThreshold(BaseExperience int) int {
+	return max(1, 100-(BaseExperience/4))
+}
 
-	apiURL := fmt.Sprintf("https://pokeapi.co/api/v2/pokemon/%s", pokemon)
+var Pokedex = map[string]pokeapi.Pokemon{}
 
-	resp, err := http.Get(apiURL)
+func Catch(cfg *config, pokemonName string) error {
+	pokeData, err := cfg.pokeapiClient.GetPokemon(pokemonName)
 	if err != nil {
-		fmt.Println("Failed to fetch pokemon data:", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	// check if the response is valid
-	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("Failed to fetch %s: HTTP Status %d\n", pokemon, resp.StatusCode)
-		return
+		return err
 	}
 
-	// read the response body
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Failed to read the response body:", err)
-		return
-	}
+	//calculate catch threshold
+	threshold := calculateCatchThreshold(pokeData.BaseExperience)
 
-	//parse the json extract base experiece
-	var pokeData Pokemon
-	err = json.Unmarshal(body, &pokeData)
-	if err != nil {
-		fmt.Println("Failed to parse JSON:", err)
-		return
-	}
+	//generate random chance
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	chance := r.Intn(100) + 1
 
-	//Print the base experience to verify
-	fmt.Printf("%s has a base experience of %d\n", pokemon, pokeData.BaseExperience)
-
-	userNumber := rand.Intn(pokeData.BaseExperience) + 1
-	randomCatch := rand.Intn(pokeData.BaseExperience) + 1
-
-	if userNumber == randomCatch {
-		fmt.Printf("%s was caught!\n", pokemon)
+	//determine success
+	if chance <= threshold {
+		fmt.Printf("%s was caught!\n", pokemonName)
+		Pokedex[pokemonName] = pokeData
 	} else {
-		fmt.Printf("%s escaped! Try again...\n", pokemon)
+		fmt.Printf("%s escaped!\n", pokemonName)
 	}
-
+	return nil
 }

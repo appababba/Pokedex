@@ -10,6 +10,8 @@ import (
 	"github.com/appababba/pokedexcli/internal/pokecache"
 )
 
+const baseURL = "https://pokeapi.co/api/v2"
+
 type Client struct {
 	httpClient http.Client
 	cache      *pokecache.Cache
@@ -64,4 +66,47 @@ func (c *Client) GetLocationArea(locationAreaName string) (LocationAreaResponse,
 		return LocationAreaResponse{}, err
 	}
 	return locationAreaResp, nil
+}
+
+func (c *Client) GetPokemon(pokemonName string) (Pokemon, error) {
+	endpoint := fmt.Sprintf("/pokemon/%s", pokemonName)
+	fullURL := baseURL + endpoint
+
+	//check cache first
+	if data, ok := c.cache.Get(fullURL); ok {
+		pokemon := Pokemon{}
+		err := json.Unmarshal(data, &pokemon)
+		if err != nil {
+			return Pokemon{}, err
+		}
+		return pokemon, nil
+	}
+
+	// if not in cache, make the request
+	resp, err := c.httpClient.Get(fullURL)
+	if err != nil {
+		return Pokemon{}, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return Pokemon{}, fmt.Errorf("HTTP request failed with status code %d", resp.StatusCode)
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return Pokemon{}, err
+	}
+
+	// cache the response
+	c.cache.Add(fullURL, data)
+
+	//parse response
+	pokemon := Pokemon{}
+	err = json.Unmarshal(data, &pokemon)
+	if err != nil {
+		return Pokemon{}, err
+	}
+	return pokemon, nil
 }
